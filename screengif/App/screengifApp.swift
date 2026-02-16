@@ -9,15 +9,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct screengifApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @StateObject private var recorder = ScreenRecorder()
+    @State private var coordinator = RecordingCoordinator()
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarView(recorder: recorder)
+            MenuBarView(coordinator: coordinator)
         } label: {
             Label(
-                recorder.state == .recording ? "Gravando..." : "ScreenGif",
-                systemImage: recorder.state == .recording ? "record.circle.fill" : "record.circle"
+                coordinator.state == .recording ? "Recording..." : "ScreenGif",
+                systemImage: coordinator.state == .recording ? "record.circle.fill" : "record.circle"
             )
         }
     }

@@ -2,8 +2,11 @@ import Foundation
 import ImageIO
 import CoreGraphics
 import UniformTypeIdentifiers
+import os
 
 nonisolated struct GIFEncoder {
+
+    private static let logger = Logger(subsystem: "com.lekito.screengif", category: "GIFEncoder")
 
     static func encode(
         frames: [CGImage],
@@ -11,16 +14,17 @@ nonisolated struct GIFEncoder {
         loopCount: Int = 0,
         maxWidth: Int = 640,
         to url: URL
-    ) -> Bool {
-        guard !frames.isEmpty else { return false }
+    ) throws {
+        guard !frames.isEmpty else { throw ScreenGifError.noFramesCaptured }
 
-        let frameCount = frames.count
+        logger.info("Encoding \(frames.count) frames to \(url.lastPathComponent)")
+
         guard let destination = CGImageDestinationCreateWithURL(
             url as CFURL,
             UTType.gif.identifier as CFString,
-            frameCount,
+            frames.count,
             nil
-        ) else { return false }
+        ) else { throw ScreenGifError.gifEncodingFailed }
 
         let gifProperties: [String: Any] = [
             kCGImagePropertyGIFDictionary as String: [
@@ -40,7 +44,11 @@ nonisolated struct GIFEncoder {
             CGImageDestinationAddImage(destination, resized, frameProperties as CFDictionary)
         }
 
-        return CGImageDestinationFinalize(destination)
+        guard CGImageDestinationFinalize(destination) else {
+            throw ScreenGifError.gifEncodingFailed
+        }
+
+        logger.info("GIF encoded successfully: \(url.lastPathComponent)")
     }
 
     private static func resizeIfNeeded(_ image: CGImage, maxWidth: Int) -> CGImage {

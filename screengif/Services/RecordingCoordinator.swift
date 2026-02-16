@@ -1,42 +1,47 @@
 import Foundation
-import Combine
 import ScreenCaptureKit
-import CoreMedia
-import CoreImage
 import Cocoa
-
-enum RecordingState: Equatable {
-    case idle
-    case selectingRegion
-    case recording
-    case encoding
-}
+import os
 
 @MainActor
-final class ScreenRecorder: NSObject, ObservableObject {
+@Observable
+final class RecordingCoordinator {
 
-    @Published var state: RecordingState = .idle
-    @Published var recordingDuration: TimeInterval = 0
-    @Published var lastSavedURL: URL?
-    @Published var errorMessage: String?
+    // MARK: - Observable State
 
-    private var stream: SCStream?
-    private var capturedFrames: [CGImage] = []
-    private let ciContext = CIContext()
-    private var timer: Timer?
-    private var recordingStart: Date?
+    var state: RecordingState = .idle
+    var recordingDuration: TimeInterval = 0
+    var lastSavedURL: URL?
+    var errorMessage: String?
+
+    // MARK: - Dependencies
+
+    let settings: AppSettings
+    private let captureService: CaptureService
+    private let frameBuffer: FrameBuffer
     private let regionSelector = RegionSelector()
     private let hotkeyManager = HotkeyManager()
+    private let logger = Logger(subsystem: "com.lekito.screengif", category: "RecordingCoordinator")
 
+    // MARK: - Internal State
+
+    private var timer: Timer?
+    private var recordingStart: Date?
     private var captureRegion: CGRect?
     private var captureDisplay: SCDisplay?
     private var backdropWindows: [RecordingBackdropWindow] = []
 
-    private let fps: Int = 15
-    private let maxGIFWidth: Int = 640
+    // MARK: - Init
 
-    override init() {
-        super.init()
+    init(settings: AppSettings = AppSettings()) {
+        self.settings = settings
+        self.frameBuffer = FrameBuffer()
+        self.captureService = CaptureService(frameBuffer: frameBuffer)
+
+        captureService.onStreamError = { [weak self] error in
+            self?.handleStreamError(error)
+        }
+
         hotkeyManager.register { [weak self] in
             Task { @MainActor in
                 self?.toggleRecording()
@@ -62,7 +67,7 @@ final class ScreenRecorder: NSObject, ObservableObject {
             do {
                 let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
                 guard let display = content.displays.first else {
-                    errorMessage = "Nenhum display encontrado"
+                    setError(.noDisplayFound)
                     return
                 }
                 let filter = SCContentFilter(display: display, excludingWindows: [])
@@ -70,20 +75,23 @@ final class ScreenRecorder: NSObject, ObservableObject {
                 self.captureRegion = nil
                 try await beginRecording(filter: filter, width: display.width, height: display.height)
             } catch {
-                errorMessage = "Erro ao iniciar gravação: \(error.localizedDescription)"
+                setError(.captureStartFailed(underlying: error))
             }
         }
     }
 
     func startRegionSelection() {
         state = .selectingRegion
+        logger.info("Region selection started")
         regionSelector.selectRegion { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }
                 guard let (rect, screen) = result else {
                     self.state = .idle
+                    self.logger.info("Region selection cancelled")
                     return
                 }
+                self.logger.info("Region selected: \(rect.debugDescription)")
                 await self.startRecordingRegion(rect: rect, screen: screen)
             }
         }
@@ -92,18 +100,19 @@ final class ScreenRecorder: NSObject, ObservableObject {
     func stopRecording() {
         guard state == .recording else { return }
         state = .encoding
+        logger.info("Stopping recording")
         timer?.invalidate()
         timer = nil
+
         for w in backdropWindows { w.orderOut(nil) }
         backdropWindows.removeAll()
 
         Task {
             do {
-                try await stream?.stopCapture()
-                stream = nil
+                try await captureService.stopCapture()
                 await encodeAndSave()
             } catch {
-                errorMessage = "Erro ao parar gravação: \(error.localizedDescription)"
+                setError(.captureStopFailed(underlying: error))
                 state = .idle
             }
         }
@@ -115,7 +124,6 @@ final class ScreenRecorder: NSObject, ObservableObject {
         do {
             let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
 
-            // Find the matching display
             guard let display = content.displays.first(where: { display in
                 let displayFrame = CGRect(
                     x: display.frame.origin.x,
@@ -125,7 +133,7 @@ final class ScreenRecorder: NSObject, ObservableObject {
                 )
                 return displayFrame.intersects(screen.frame)
             }) else {
-                errorMessage = "Display não encontrado"
+                setError(.displayNotFound)
                 state = .idle
                 return
             }
@@ -133,53 +141,41 @@ final class ScreenRecorder: NSObject, ObservableObject {
             self.captureDisplay = display
             self.captureRegion = rect
 
-            // Calculate capture dimensions from the region
             let width = Int(rect.width)
             let height = Int(rect.height)
 
             let filter = SCContentFilter(display: display, excludingWindows: [])
             try await beginRecording(filter: filter, width: width, height: height)
         } catch {
-            errorMessage = "Erro ao iniciar gravação: \(error.localizedDescription)"
+            setError(.captureStartFailed(underlying: error))
             state = .idle
         }
     }
 
     private func beginRecording(filter: SCContentFilter, width: Int, height: Int) async throws {
-        capturedFrames.removeAll()
+        var sourceRect: CGRect? = nil
 
-        let config = SCStreamConfiguration()
-        config.width = width
-        config.height = height
-        config.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(fps))
-        config.pixelFormat = kCVPixelFormatType_32BGRA
-        config.showsCursor = true
-
-        // If we have a region, set the source rect
         if let region = captureRegion, let display = captureDisplay {
-            // Convert from screen coordinates to display-relative coordinates
-            // ScreenCaptureKit uses top-left origin
             let displayFrame = display.frame
             let sourceX = region.origin.x - displayFrame.origin.x
-            // Flip Y: NSScreen uses bottom-left, SCKit uses top-left
             let screenHeight = CGFloat(display.height)
             let sourceY = screenHeight - (region.origin.y - displayFrame.origin.y) - region.height
-
-            config.sourceRect = CGRect(x: sourceX, y: sourceY, width: region.width, height: region.height)
-            config.width = Int(region.width)
-            config.height = Int(region.height)
+            sourceRect = CGRect(x: sourceX, y: sourceY, width: region.width, height: region.height)
         }
 
-        let stream = SCStream(filter: filter, configuration: config, delegate: self)
-        try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: .global(qos: .userInteractive))
-        try await stream.startCapture()
+        try await captureService.startCapture(
+            filter: filter,
+            width: width,
+            height: height,
+            fps: settings.fps,
+            showCursor: settings.showCursor,
+            sourceRect: sourceRect
+        )
 
-        self.stream = stream
         state = .recording
         recordingStart = Date()
         recordingDuration = 0
 
-        // Show backdrop on all screens with a clear cutout for the recorded region
         if let region = captureRegion {
             for screen in NSScreen.screens {
                 let backdrop = RecordingBackdropWindow(screen: screen, clearRect: region)
@@ -195,78 +191,57 @@ final class ScreenRecorder: NSObject, ObservableObject {
                 self.recordingDuration = Date().timeIntervalSince(start)
             }
         }
+
+        logger.info("Recording started")
     }
 
     private func encodeAndSave() async {
-        let frames = capturedFrames
-        capturedFrames.removeAll()
+        let frames = frameBuffer.drain()
 
         guard !frames.isEmpty else {
-            errorMessage = "Nenhum frame capturado"
+            setError(.noFramesCaptured)
             state = .idle
             return
         }
 
-        let desktopURL = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Desktop")
+        logger.info("Encoding \(frames.count) frames")
 
+        let outputDir = settings.outputDirectory
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         let filename = "ScreenGif_\(formatter.string(from: Date())).gif"
-        let fileURL = desktopURL.appendingPathComponent(filename)
+        let fileURL = outputDir.appendingPathComponent(filename)
 
-        let fps = self.fps
-        let maxWidth = self.maxGIFWidth
-        let success = await Task.detached(priority: .userInitiated) {
-            GIFEncoder.encode(
-                frames: frames,
-                frameDelay: 1.0 / Double(fps),
-                maxWidth: maxWidth,
-                to: fileURL
-            )
-        }.value
+        let fps = settings.fps
+        let maxWidth = settings.maxGIFWidth
 
-        if success {
+        do {
+            try await Task.detached(priority: .userInitiated) {
+                try GIFEncoder.encode(
+                    frames: frames,
+                    frameDelay: 1.0 / Double(fps),
+                    maxWidth: maxWidth,
+                    to: fileURL
+                )
+            }.value
+
             lastSavedURL = fileURL
-            // Open in Finder
             NSWorkspace.shared.activateFileViewerSelecting([fileURL])
-        } else {
-            errorMessage = "Falha ao criar GIF"
+            logger.info("GIF saved: \(fileURL.lastPathComponent)")
+        } catch {
+            setError(.gifEncodingFailed)
         }
 
         state = .idle
     }
-}
 
-// MARK: - SCStreamDelegate
-
-extension ScreenRecorder: SCStreamDelegate {
-    nonisolated func stream(_ stream: SCStream, didStopWithError error: any Error) {
-        Task { @MainActor in
-            errorMessage = "Stream parou: \(error.localizedDescription)"
-            state = .idle
-        }
+    private func handleStreamError(_ error: Error) {
+        setError(.streamStopped(underlying: error))
+        state = .idle
     }
-}
 
-// MARK: - SCStreamOutput
-
-extension ScreenRecorder: SCStreamOutput {
-    nonisolated func stream(
-        _ stream: SCStream,
-        didOutputSampleBuffer sampleBuffer: CMSampleBuffer,
-        of outputType: SCStreamOutputType
-    ) {
-        guard outputType == .screen else { return }
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-
-        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-        guard let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) else { return }
-
-        Task { @MainActor in
-            if state == .recording {
-                capturedFrames.append(cgImage)
-            }
-        }
+    private func setError(_ error: ScreenGifError) {
+        logger.error("\(error.localizedDescription)")
+        errorMessage = error.errorDescription
     }
 }

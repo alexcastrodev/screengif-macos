@@ -1,57 +1,56 @@
 import SwiftUI
 
 struct MenuBarView: View {
-    @ObservedObject var recorder: ScreenRecorder
+    var coordinator: RecordingCoordinator
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            // Status
-            switch recorder.state {
+            switch coordinator.state {
             case .idle:
-                Label("Pronto para gravar", systemImage: "circle")
+                Label("Ready to record", systemImage: "circle")
                     .foregroundStyle(.secondary)
             case .selectingRegion:
-                Label("Selecione uma região...", systemImage: "rectangle.dashed")
+                Label("Select a region...", systemImage: "rectangle.dashed")
                     .foregroundStyle(.orange)
             case .recording:
                 HStack {
-                    Label("Gravando", systemImage: "record.circle.fill")
+                    Label("Recording", systemImage: "record.circle.fill")
                         .foregroundStyle(.red)
                     Spacer()
-                    Text(formatDuration(recorder.recordingDuration))
+                    Text(formatDuration(coordinator.recordingDuration))
                         .monospacedDigit()
                         .foregroundStyle(.red)
                 }
             case .encoding:
-                Label("Gerando GIF...", systemImage: "gearshape.2.fill")
+                Label("Generating GIF...", systemImage: "gearshape.2.fill")
                     .foregroundStyle(.blue)
             }
 
             Divider()
 
-            if recorder.state == .recording {
+            if coordinator.state == .recording {
                 Button {
-                    recorder.stopRecording()
+                    coordinator.stopRecording()
                 } label: {
-                    Label("Parar Gravação", systemImage: "stop.fill")
+                    Label("Stop Recording", systemImage: "stop.fill")
                 }
                 .keyboardShortcut("6", modifiers: [.command, .shift])
-            } else if recorder.state == .idle {
+            } else if coordinator.state == .idle {
                 Button {
-                    recorder.startRegionSelection()
+                    coordinator.startRegionSelection()
                 } label: {
-                    Label("Selecionar Região", systemImage: "rectangle.dashed")
+                    Label("Select Region", systemImage: "rectangle.dashed")
                 }
                 .keyboardShortcut("6", modifiers: [.command, .shift])
 
                 Button {
-                    recorder.recordFullScreen()
+                    coordinator.recordFullScreen()
                 } label: {
-                    Label("Tela Inteira", systemImage: "desktopcomputer")
+                    Label("Full Screen", systemImage: "desktopcomputer")
                 }
             }
 
-            if let error = recorder.errorMessage {
+            if let error = coordinator.errorMessage {
                 Divider()
                 Text(error)
                     .font(.caption)
@@ -59,26 +58,26 @@ struct MenuBarView: View {
                     .lineLimit(2)
             }
 
-            if let url = recorder.lastSavedURL {
+            if let url = coordinator.lastSavedURL {
                 Divider()
                 Button {
                     NSWorkspace.shared.activateFileViewerSelecting([url])
                 } label: {
                     Label(url.lastPathComponent, systemImage: "doc.fill")
                 }
-                .help("Abrir no Finder")
+                .help("Open in Finder")
             }
 
             Divider()
 
             HStack {
-                Text("Atalho: ⌘⇧6")
+                Text("Shortcut: ⌘⇧6")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                 Spacer()
             }
 
-            Button("Sair") {
+            Button("Quit") {
                 NSApp.terminate(nil)
             }
             .keyboardShortcut("q")

@@ -1,13 +1,14 @@
 import Cocoa
+import os
 
 @MainActor
 final class HotkeyManager {
 
     private var globalMonitor: Any?
     private var localMonitor: Any?
+    private let logger = Logger(subsystem: "com.lekito.screengif", category: "HotkeyManager")
 
     func register(handler: @escaping @MainActor () -> Void) {
-        // keyCode 22 = "6" key
         let targetKeyCode: UInt16 = 22
         let targetModifiers: NSEvent.ModifierFlags = [.command, .shift]
 
@@ -29,6 +30,8 @@ final class HotkeyManager {
             }
             return event
         }
+
+        logger.info("Hotkey registered: ⌘⇧6")
     }
 
     func unregister() {
@@ -40,6 +43,7 @@ final class HotkeyManager {
             NSEvent.removeMonitor(localMonitor)
             self.localMonitor = nil
         }
+        logger.info("Hotkey unregistered")
     }
 
     deinit {

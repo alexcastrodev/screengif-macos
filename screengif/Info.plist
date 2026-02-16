@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>NSScreenCaptureUsageDescription</key>
-	<string>ScreenGif precisa acessar sua tela para gravar e criar GIFs animados.</string>
+	<string>ScreenGif needs access to your screen to record and create animated GIFs.</string>
 	<key>LSUIElement</key>
 	<true/>
 </dict>
