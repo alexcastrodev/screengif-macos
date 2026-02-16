@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct MenuBarView: View {
-    var coordinator: RecordingCoordinator
+    @ObservedObject var coordinator: RecordingCoordinator
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -48,6 +48,13 @@ struct MenuBarView: View {
                 } label: {
                     Label("Full Screen", systemImage: "desktopcomputer")
                 }
+            } else if coordinator.state == .selectingRegion {
+                Button {
+                    coordinator.cancelSelection()
+                } label: {
+                    Label("Cancel Selection", systemImage: "xmark.circle")
+                }
+                .keyboardShortcut(.escape, modifiers: [])
             }
 
             if let error = coordinator.errorMessage {

@@ -32,7 +32,7 @@ final class RegionSelector {
         completion(result)
     }
 
-    private func cancel() {
+    func cancel() {
         closeAll()
         completion(nil)
     }

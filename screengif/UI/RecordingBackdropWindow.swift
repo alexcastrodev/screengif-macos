@@ -11,7 +11,7 @@ final class RecordingBackdropWindow: NSWindow {
             defer: false
         )
 
-        self.level = .screenSaver
+        self.level = .floating
         self.isOpaque = false
         self.backgroundColor = .clear
         self.ignoresMouseEvents = true

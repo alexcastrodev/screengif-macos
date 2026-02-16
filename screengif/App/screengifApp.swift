@@ -9,7 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct screengifApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @State private var coordinator = RecordingCoordinator()
+    @StateObject private var coordinator = RecordingCoordinator()
 
     var body: some Scene {
         MenuBarExtra {

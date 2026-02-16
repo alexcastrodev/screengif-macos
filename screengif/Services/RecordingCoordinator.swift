@@ -2,17 +2,17 @@ import Foundation
 import ScreenCaptureKit
 import Cocoa
 import os
+import Combine
 
 @MainActor
-@Observable
-final class RecordingCoordinator {
+final class RecordingCoordinator: NSObject, ObservableObject {
 
-    // MARK: - Observable State
+    // MARK: - Published State
 
-    var state: RecordingState = .idle
-    var recordingDuration: TimeInterval = 0
-    var lastSavedURL: URL?
-    var errorMessage: String?
+    @Published var state: RecordingState = .idle
+    @Published var recordingDuration: TimeInterval = 0
+    @Published var lastSavedURL: URL?
+    @Published var errorMessage: String?
 
     // MARK: - Dependencies
 
@@ -33,10 +33,11 @@ final class RecordingCoordinator {
 
     // MARK: - Init
 
-    init(settings: AppSettings = AppSettings()) {
-        self.settings = settings
+    override init() {
+        self.settings = AppSettings()
         self.frameBuffer = FrameBuffer()
         self.captureService = CaptureService(frameBuffer: frameBuffer)
+        super.init()
 
         captureService.onStreamError = { [weak self] error in
             self?.handleStreamError(error)
@@ -57,9 +58,16 @@ final class RecordingCoordinator {
             startRegionSelection()
         case .recording:
             stopRecording()
-        case .selectingRegion, .encoding:
+        case .selectingRegion:
+            cancelSelection()
+        case .encoding:
             break
         }
+    }
+
+    func cancelSelection() {
+        guard state == .selectingRegion else { return }
+        regionSelector.cancel()
     }
 
     func recordFullScreen() {
