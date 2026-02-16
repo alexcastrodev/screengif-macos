@@ -11,7 +11,7 @@ final class AppSettings {
     }
 
     static let defaultFPS = 15
-    static let defaultMaxGIFWidth = 640
+    static let defaultMaxGIFWidth = 3840
     static let defaultShowCursor = true
 
     private let defaults: UserDefaults

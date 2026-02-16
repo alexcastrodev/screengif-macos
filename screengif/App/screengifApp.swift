@@ -20,5 +20,9 @@ struct screengifApp: App {
                 systemImage: coordinator.state == .recording ? "record.circle.fill" : "record.circle"
             )
         }
+
+        Settings {
+            SettingsView(settings: coordinator.settings)
+        }
     }
 }

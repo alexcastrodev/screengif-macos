@@ -27,12 +27,10 @@ final class RecordingCoordinator: NSObject, ObservableObject {
 
     private var timer: Timer?
     private var recordingStart: Date?
-    private var captureRegion: CGRect?
+    var captureRegion: CGRect?
     private var captureDisplay: SCDisplay?
     private var backdropWindows: [RecordingBackdropWindow] = []
-
-    // MARK: - Init
-
+    
     override init() {
         self.settings = AppSettings()
         self.frameBuffer = FrameBuffer()
@@ -64,7 +62,7 @@ final class RecordingCoordinator: NSObject, ObservableObject {
             break
         }
     }
-
+    
     func cancelSelection() {
         guard state == .selectingRegion else { return }
         regionSelector.cancel()
@@ -78,7 +76,13 @@ final class RecordingCoordinator: NSObject, ObservableObject {
                     setError(.noDisplayFound)
                     return
                 }
-                let filter = SCContentFilter(display: display, excludingWindows: [])
+                
+                // Exclude self application
+                let currentPID = ProcessInfo.processInfo.processIdentifier
+                let selfApp = content.applications.first { $0.processID == currentPID }
+                let excludedApps = selfApp != nil ? [selfApp!] : []
+                
+                let filter = SCContentFilter(display: display, excludingApplications: excludedApps, exceptingWindows: [])
                 self.captureDisplay = display
                 self.captureRegion = nil
                 try await beginRecording(filter: filter, width: display.width, height: display.height)
@@ -151,8 +155,13 @@ final class RecordingCoordinator: NSObject, ObservableObject {
 
             let width = Int(rect.width)
             let height = Int(rect.height)
+            
+            // Exclude self application
+            let currentPID = ProcessInfo.processInfo.processIdentifier
+            let selfApp = content.applications.first { $0.processID == currentPID }
+            let excludedApps = selfApp != nil ? [selfApp!] : []
 
-            let filter = SCContentFilter(display: display, excludingWindows: [])
+            let filter = SCContentFilter(display: display, excludingApplications: excludedApps, exceptingWindows: [])
             try await beginRecording(filter: filter, width: width, height: height)
         } catch {
             setError(.captureStartFailed(underlying: error))

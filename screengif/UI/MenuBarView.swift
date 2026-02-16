@@ -84,6 +84,92 @@ struct MenuBarView: View {
                 Spacer()
             }
 
+            Menu("Frame Rate") {
+                Button {
+                    coordinator.settings.fps = 5
+                } label: {
+                    if coordinator.settings.fps == 5 {
+                        Label("5 FPS", systemImage: "checkmark")
+                    } else {
+                        Text("5 FPS")
+                    }
+                }
+                
+                Button {
+                    coordinator.settings.fps = 10
+                } label: {
+                    if coordinator.settings.fps == 10 {
+                        Label("10 FPS", systemImage: "checkmark")
+                    } else {
+                        Text("10 FPS")
+                    }
+                }
+
+                Button {
+                    coordinator.settings.fps = 15
+                } label: {
+                    if coordinator.settings.fps == 15 {
+                        Label("15 FPS", systemImage: "checkmark")
+                    } else {
+                        Text("15 FPS")
+                    }
+                }
+
+                Button {
+                    coordinator.settings.fps = 30
+                } label: {
+                    if coordinator.settings.fps == 30 {
+                        Label("30 FPS", systemImage: "checkmark")
+                    } else {
+                        Text("30 FPS")
+                    }
+                }
+                
+                Button {
+                    coordinator.settings.fps = 60
+                } label: {
+                    if coordinator.settings.fps == 60 {
+                        Label("60 FPS", systemImage: "checkmark")
+                    } else {
+                        Text("60 FPS")
+                    }
+                }
+            }
+            
+            Menu("Size Limit") {
+                Button {
+                    coordinator.settings.maxGIFWidth = 640
+                } label: {
+                    if coordinator.settings.maxGIFWidth == 640 {
+                        Label("Small (640px)", systemImage: "checkmark")
+                    } else {
+                        Text("Small (640px)")
+                    }
+                }
+                
+                Button {
+                    coordinator.settings.maxGIFWidth = 1080
+                } label: {
+                    if coordinator.settings.maxGIFWidth == 1080 {
+                        Label("Medium (1080px)", systemImage: "checkmark")
+                    } else {
+                        Text("Medium (1080px)")
+                    }
+                }
+
+                Button {
+                    coordinator.settings.maxGIFWidth = 3840
+                } label: {
+                    if coordinator.settings.maxGIFWidth == 3840 {
+                        Label("Original / 4K (3840px)", systemImage: "checkmark")
+                    } else {
+                        Text("Original / 4K (3840px)")
+                    }
+                }
+            }
+
+            Divider()
+
             Button("Quit") {
                 NSApp.terminate(nil)
             }
