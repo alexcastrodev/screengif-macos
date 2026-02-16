@@ -30,6 +30,7 @@ final class ScreenRecorder: NSObject, ObservableObject {
 
     private var captureRegion: CGRect?
     private var captureDisplay: SCDisplay?
+    private var borderWindow: RecordingBorderWindow?
 
     private let fps: Int = 15
     private let maxGIFWidth: Int = 640
@@ -93,6 +94,8 @@ final class ScreenRecorder: NSObject, ObservableObject {
         state = .encoding
         timer?.invalidate()
         timer = nil
+        borderWindow?.orderOut(nil)
+        borderWindow = nil
 
         Task {
             do {
@@ -175,6 +178,12 @@ final class ScreenRecorder: NSObject, ObservableObject {
         state = .recording
         recordingStart = Date()
         recordingDuration = 0
+
+        // Show border around recorded region
+        if let region = captureRegion {
+            borderWindow = RecordingBorderWindow(region: region)
+            borderWindow?.makeKeyAndOrderFront(nil)
+        }
 
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self else { return }
