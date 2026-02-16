@@ -169,31 +169,5 @@ private final class SelectionOverlayView: NSView {
 
         NSColor.clear.setFill()
         selectionRect.fill(using: .copy)
-
-        let borderPath = NSBezierPath(rect: selectionRect)
-        NSColor.white.setStroke()
-        borderPath.lineWidth = 2
-        borderPath.stroke()
-
-        let dashedPath = NSBezierPath(rect: selectionRect.insetBy(dx: 1, dy: 1))
-        dashedPath.lineWidth = 1
-        dashedPath.setLineDash([6, 4], count: 2, phase: 0)
-        NSColor.systemBlue.setStroke()
-        dashedPath.stroke()
-
-        let w = Int(selectionRect.width)
-        let h = Int(selectionRect.height)
-        let label = "\(w) x \(h)"
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 12, weight: .medium),
-            .foregroundColor: NSColor.white,
-            .backgroundColor: NSColor.black.withAlphaComponent(0.7)
-        ]
-        let labelSize = label.size(withAttributes: attrs)
-        let labelPoint = NSPoint(
-            x: selectionRect.midX - labelSize.width / 2,
-            y: selectionRect.maxY + 6
-        )
-        label.draw(at: labelPoint, withAttributes: attrs)
     }
 }

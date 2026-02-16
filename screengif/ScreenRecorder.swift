@@ -30,7 +30,7 @@ final class ScreenRecorder: NSObject, ObservableObject {
 
     private var captureRegion: CGRect?
     private var captureDisplay: SCDisplay?
-    private var borderWindow: RecordingBorderWindow?
+    private var backdropWindows: [RecordingBackdropWindow] = []
 
     private let fps: Int = 15
     private let maxGIFWidth: Int = 640
@@ -94,8 +94,8 @@ final class ScreenRecorder: NSObject, ObservableObject {
         state = .encoding
         timer?.invalidate()
         timer = nil
-        borderWindow?.orderOut(nil)
-        borderWindow = nil
+        for w in backdropWindows { w.orderOut(nil) }
+        backdropWindows.removeAll()
 
         Task {
             do {
@@ -179,10 +179,13 @@ final class ScreenRecorder: NSObject, ObservableObject {
         recordingStart = Date()
         recordingDuration = 0
 
-        // Show border around recorded region
+        // Show backdrop on all screens with a clear cutout for the recorded region
         if let region = captureRegion {
-            borderWindow = RecordingBorderWindow(region: region)
-            borderWindow?.makeKeyAndOrderFront(nil)
+            for screen in NSScreen.screens {
+                let backdrop = RecordingBackdropWindow(screen: screen, clearRect: region)
+                backdrop.orderFrontRegardless()
+                backdropWindows.append(backdrop)
+            }
         }
 
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
