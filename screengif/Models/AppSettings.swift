@@ -6,12 +6,14 @@ final class AppSettings {
     private enum Key {
         static let fps = "settings.fps"
         static let maxGIFWidth = "settings.maxGIFWidth"
+        static let recordingSpeed = "settings.recordingSpeed"
         static let outputDirectory = "settings.outputDirectory"
         static let showCursor = "settings.showCursor"
     }
 
     static let defaultFPS = 15
     static let defaultMaxGIFWidth = 3840
+    static let defaultRecordingSpeed = 1.0
     static let defaultShowCursor = true
 
     private let defaults: UserDefaults
@@ -22,6 +24,10 @@ final class AppSettings {
 
     var maxGIFWidth: Int {
         didSet { defaults.set(maxGIFWidth, forKey: Key.maxGIFWidth) }
+    }
+
+    var recordingSpeed: Double {
+        didSet { defaults.set(recordingSpeed, forKey: Key.recordingSpeed) }
     }
 
     var outputDirectory: URL {
@@ -40,6 +46,9 @@ final class AppSettings {
 
         let storedWidth = defaults.integer(forKey: Key.maxGIFWidth)
         self.maxGIFWidth = storedWidth > 0 ? storedWidth : Self.defaultMaxGIFWidth
+
+        let storedSpeed = defaults.double(forKey: Key.recordingSpeed)
+        self.recordingSpeed = storedSpeed > 0 ? storedSpeed : Self.defaultRecordingSpeed
 
         self.showCursor = defaults.object(forKey: Key.showCursor) != nil
             ? defaults.bool(forKey: Key.showCursor)
