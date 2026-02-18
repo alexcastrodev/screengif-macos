@@ -231,12 +231,13 @@ final class RecordingCoordinator: NSObject, ObservableObject {
 
         let fps = settings.fps
         let maxWidth = settings.maxGIFWidth
+        let speed = settings.recordingSpeed
 
         do {
             try await Task.detached(priority: .userInitiated) {
                 try GIFEncoder.encode(
                     frames: frames,
-                    frameDelay: 1.0 / Double(fps),
+                    frameDelay: (1.0 / Double(fps)) / speed,
                     maxWidth: maxWidth,
                     to: fileURL
                 )

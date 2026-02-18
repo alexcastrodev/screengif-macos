@@ -136,6 +136,48 @@ struct MenuBarView: View {
                 }
             }
             
+            Menu("Recording Speed") {
+                Button {
+                    coordinator.settings.recordingSpeed = 0.5
+                } label: {
+                    if coordinator.settings.recordingSpeed == 0.5 {
+                        Label("0.5x", systemImage: "checkmark")
+                    } else {
+                        Text("0.5x")
+                    }
+                }
+                
+                Button {
+                    coordinator.settings.recordingSpeed = 1.0
+                } label: {
+                    if coordinator.settings.recordingSpeed == 1.0 {
+                        Label("1x", systemImage: "checkmark")
+                    } else {
+                        Text("1x")
+                    }
+                }
+
+                Button {
+                    coordinator.settings.recordingSpeed = 2.0
+                } label: {
+                    if coordinator.settings.recordingSpeed == 2.0 {
+                        Label("2x", systemImage: "checkmark")
+                    } else {
+                        Text("2x")
+                    }
+                }
+                
+                Button {
+                    coordinator.settings.recordingSpeed = 4.0
+                } label: {
+                    if coordinator.settings.recordingSpeed == 4.0 {
+                        Label("4x", systemImage: "checkmark")
+                    } else {
+                        Text("4x")
+                    }
+                }
+            }
+            
             Menu("Size Limit") {
                 Button {
                     coordinator.settings.maxGIFWidth = 640
